@@ -3,9 +3,7 @@ const header = require("../header");
 const sslfix = require("./sslfix");
 const cheerio = require("cheerio");
 const Axios = require('axios');
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
+const { searchWithSession } = require("./scrapeProxyCookie");
 
 const axios = Axios.create();
 
@@ -34,21 +32,11 @@ async function SearchMovieAndSeries(name) {
 
         const searchUrl = `${process.env.PROXY_URL}/wp-admin/admin-ajax.php`;
         const postData = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
-        const cookie = header.Cookie || '';
-        const ua = header['User-Agent'] || '';
-        console.log('[Search] curl ile POST yapılıyor...');
-        const curlCmd = `curl -s -X POST "${searchUrl}" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -H "Cookie: ${cookie}" \
-            -H "User-Agent: ${ua}" \
-            -H "Origin: ${process.env.PROXY_URL}" \
-            -H "Referer: ${process.env.PROXY_URL}" \
-            --data-raw "${postData}" \
-            --max-time 30`;
-        const { stdout, stderr } = await execAsync(curlCmd);
-        console.log('[Search] curl yanıtı (ilk 200):', stdout?.substring(0, 200));
-        if (!stdout) return {};
-        const response = { data: stdout };
+        console.log('[Search] FlareSolverr session ile POST yapılıyor, session:', process.env.FS_SESSION_ID);
+        const html = await searchWithSession(searchUrl, postData);
+        console.log('[Search] yanıt uzunluk:', html?.length, 'ilk 200:', html?.substring(0, 200));
+        if (!html) return {};
+        const response = { data: html };
 
         if (!response || !response.data) return {};
 
