@@ -57,14 +57,14 @@ app.get("/:userConf?/configure", function (req, res) {
 app.get('/manifest.json', function (req, res) {
         const newManifest = { ...MANIFEST };
         // newManifest.behaviorHints.configurationRequired = false;
-        newManifest.behaviorHints.configurationRequired = true;
+        newManifest.behaviorHints.configurationRequired = false;
         return respond(res, newManifest);
 });
 
 app.get('/:userConf/manifest.json', function (req, res) {
         const newManifest = { ...MANIFEST };
         if (!((req || {}).params || {}).userConf) {
-            newManifest.behaviorHints.configurationRequired = true;
+            newManifest.behaviorHints.configurationRequired = false;
            return respond(res, newManifest);
         } else {
             newManifest.behaviorHints.configurationRequired = false;

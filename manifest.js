@@ -7,6 +7,10 @@ const manifest = {
     contactEmail: "eyup.elitass@gmail.com",
     logo: `${process.env.HOSTING_URL}/images/dizipal.png`,
     background: `${process.env.HOSTING_URL}/images/background.jpg`,
+    behaviorHints: {
+        configurable: false,
+        configurationRequired: false,
+    },
     catalogs: [{
         type: "series",
         id: "dizipal",
