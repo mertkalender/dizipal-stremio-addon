@@ -9,7 +9,7 @@ const manifest = {
     background: `${process.env.HOSTING_URL}/images/background.jpg`,
     behaviorHints: {
         configurable: false,
-        configurationRequired: true,
+        configurationRequired: false,
     },
     config: [{
         key: "dizipal",
