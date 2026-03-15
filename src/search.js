@@ -32,7 +32,9 @@ async function SearchMovieAndSeries(name) {
 
         const searchUrl = `${process.env.PROXY_URL}/wp-admin/admin-ajax.php`;
         const postData = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
+        console.log('[Search] searchWithSession çağrılıyor, session:', process.env.FS_SESSION_ID);
         const html = await searchWithSession(searchUrl, postData);
+        console.log('[Search] HTML geldi, uzunluk:', html?.length, 'ilk 200:', html?.substring(0, 200));
         if (!html) return {};
         const response = { data: html };
 
