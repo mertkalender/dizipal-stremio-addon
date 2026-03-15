@@ -36,7 +36,7 @@ async function SearchMovieAndSeries(name) {
         if (!html) return {};
         const response = { data: html };
 
-        if (!response || response.status !== 200 || !response.data) return {};
+        if (!response || !response.data) return {};
 
         const $ = cheerio.load(response.data);
         const results = {};
