@@ -78,7 +78,7 @@ app.get('/:userConf/manifest.json', function (req, res) {
 });
 
 //CODE
-app.get("/addon/catalog/:type/:id/search=:search", async (req, res, next) => {
+app.get("/catalog/:type/:id/search=:search", async (req, res, next) => {
     try {
         var { type, id, search } = req.params;
         search = search.replace(".json", "");
@@ -121,7 +121,7 @@ app.get("/addon/catalog/:type/:id/search=:search", async (req, res, next) => {
 
 })
 
-app.get('/addon/meta/:type/:id/', async (req, res, next) => {
+app.get('/meta/:type/:id/', async (req, res, next) => {
     try {
         var { type, id } = req.params;
         id = String(id).replace(".json", "");
@@ -187,7 +187,7 @@ app.get('/addon/meta/:type/:id/', async (req, res, next) => {
 })
 
 
-app.get('/addon/stream/:type/:id/', async (req, res, next) => {
+app.get('/stream/:type/:id/', async (req, res, next) => {
     try {
         var { type, id } = req.params;
         id = String(id).replace(".json", "");
@@ -206,7 +206,7 @@ app.get('/addon/stream/:type/:id/', async (req, res, next) => {
     }
 })
 
-app.get('/addon/subtitles/:type/:id/:query?.json', async (req, res, next) => {
+app.get('/subtitles/:type/:id/:query?.json', async (req, res, next) => {
     try {
         var { type, id } = req.params;
         id = String(id).replace(".json", "");
