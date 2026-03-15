@@ -37,7 +37,8 @@ async function fetchCookiesWithPuppeteer(url) {
         if (nonce) console.log(`[Cookie] Search nonce alındı: ${nonce}`);
         else console.warn('[Cookie] Nonce alınamadı.');
 
-        return { cookies: cookies || null, nonce: nonce || null };
+        const userAgent = data.solution?.userAgent || null;
+        return { cookies: cookies || null, nonce: nonce || null, userAgent };
     } catch (error) {
         console.error('[Cookie] FlareSolverr hatası:', error.message);
         return { cookies: null, nonce: null };

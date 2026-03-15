@@ -40,6 +40,10 @@ async function refreshCookies() {
         if (result.nonce) {
             process.env.SEARCH_NONCE = result.nonce;
         }
+
+        if (result.userAgent) {
+            header['User-Agent'] = result.userAgent;
+        }
     } catch (error) {
         console.error('[Header] Cookie yenileme hatası:', error.message);
     }
