@@ -29,10 +29,12 @@ async function SearchMovieAndSeries(name) {
             }
         }
 
+        const searchUrl = `${process.env.PROXY_URL}/wp-admin/admin-ajax.php`;
+        console.log('[Search] URL:', JSON.stringify(searchUrl));
         const data = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
         const response = await axios({
             ...sslfix,
-            url: `${process.env.PROXY_URL}/wp-admin/admin-ajax.php`,
+            url: searchUrl,
             headers: { ...header, 'Content-Type': 'application/x-www-form-urlencoded' },
             method: 'POST',
             data: data,
