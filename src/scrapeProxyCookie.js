@@ -37,10 +37,21 @@ async function fetchCookiesWithPuppeteer(url) {
         try {
             await page.waitForFunction(
                 () => document.title !== 'Just a moment...',
-                { timeout: 30000 }
+                { timeout: 60000 }
             );
+            console.log('[Cookie] Cloudflare challenge geçildi.');
         } catch (e) {
-            console.warn('[Cookie] Cloudflare challenge timeout, devam ediliyor.');
+            console.warn('[Cookie] Cloudflare challenge timeout, tekrar yükleniyor...');
+            // CF cookie aldıktan sonra tekrar yükle
+            await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+            try {
+                await page.waitForFunction(
+                    () => document.title !== 'Just a moment...',
+                    { timeout: 30000 }
+                );
+            } catch (e2) {
+                console.warn('[Cookie] İkinci yükleme de timeout, devam ediliyor.');
+            }
         }
 
         const cookies = await page.cookies();
