@@ -3,10 +3,8 @@ const header = require("../header");
 const sslfix = require("./sslfix");
 const cheerio = require("cheerio");
 const Axios = require('axios');
-const { setupCache } = require("axios-cache-interceptor");
 
-const instance = Axios.create();
-const axios = setupCache(instance);
+const axios = Axios.create();
 
 // URL'den içerik tipini belirle
 function getTypeFromUrl(url) {
