@@ -6,6 +6,11 @@ const fs = require('fs')
 const Path = require("path");
 const express = require("express");
 const app = express();
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    next();
+});
 const searchVideo = require("./src/search");
 const listVideo = require("./src/videos");
 const path = require("path");
