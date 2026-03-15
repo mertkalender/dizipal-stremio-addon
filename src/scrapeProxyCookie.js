@@ -46,15 +46,24 @@ async function fetchCookiesWithPuppeteer(url) {
         const cookies = await page.cookies();
         const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
 
-        // Arama nonce'unu sayfadan çek
-        const nonce = await page.evaluate(() => {
+        console.log(`[Cookie] ${cookies.length} cookie alındı: ${url}`);
+
+        // Nonce'u önce page.evaluate ile dene
+        let nonce = await page.evaluate(() => {
             return (typeof live_search_params !== 'undefined' && live_search_params.nonce)
                 ? live_search_params.nonce
                 : null;
         });
 
-        console.log(`[Cookie] ${cookies.length} cookie alındı: ${url}`);
+        // page.evaluate başarısız olduysa HTML'den regex ile çek
+        if (!nonce) {
+            const html = await page.content();
+            const match = html.match(/"nonce"\s*:\s*"([^"]+)"/);
+            if (match) nonce = match[1];
+        }
+
         if (nonce) console.log(`[Cookie] Search nonce alındı: ${nonce}`);
+        else console.warn('[Cookie] Nonce alınamadı.');
 
         return { cookies: cookieString || null, nonce: nonce || null };
     } catch (error) {
