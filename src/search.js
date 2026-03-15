@@ -17,10 +17,18 @@ function getTypeFromUrl(url) {
 // Arama - keremiya_live_search AJAX endpoint kullanır
 async function SearchMovieAndSeries(name) {
     try {
-        const nonce = process.env.SEARCH_NONCE;
+        let nonce = process.env.SEARCH_NONCE;
         if (!nonce) {
-            console.warn('[Search] SEARCH_NONCE henüz yok, cookie yenilenmesini bekle.');
-            return {};
+            console.warn('[Search] SEARCH_NONCE henüz yok, bekleniyor...');
+            for (let i = 0; i < 30; i++) {
+                await new Promise(r => setTimeout(r, 1000));
+                nonce = process.env.SEARCH_NONCE;
+                if (nonce) break;
+            }
+            if (!nonce) {
+                console.warn('[Search] SEARCH_NONCE 30sn içinde gelmedi, boş dönülüyor.');
+                return {};
+            }
         }
 
         const data = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
