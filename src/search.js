@@ -30,15 +30,19 @@ async function SearchMovieAndSeries(name) {
         }
 
         const searchUrl = `${process.env.PROXY_URL}/wp-admin/admin-ajax.php`;
-        console.log('[Search] URL:', JSON.stringify(searchUrl));
-        const data = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
-        const response = await axios({
-            ...sslfix,
+        const postData = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
+        const fsResponse = await axios.post('http://localhost:8191/v1', {
+            cmd: 'request.post',
             url: searchUrl,
-            headers: { ...header, 'Content-Type': 'application/x-www-form-urlencoded' },
-            method: 'POST',
-            data: data,
-        });
+            postData: postData,
+            maxTimeout: 60000,
+        }, { timeout: 90000 });
+
+        if (!fsResponse.data || fsResponse.data.status !== 'ok') {
+            console.warn('[Search] FlareSolverr arama başarısız');
+            return {};
+        }
+        const response = { data: fsResponse.data.solution?.response };
 
         if (!response || response.status !== 200 || !response.data) return {};
 
