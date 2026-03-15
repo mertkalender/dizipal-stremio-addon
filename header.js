@@ -44,6 +44,10 @@ async function refreshCookies() {
         if (result.userAgent) {
             header['User-Agent'] = result.userAgent;
         }
+
+        if (result.sessionId) {
+            process.env.FS_SESSION_ID = result.sessionId;
+        }
     } catch (error) {
         console.error('[Header] Cookie yenileme hatası:', error.message);
     }

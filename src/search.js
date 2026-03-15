@@ -3,6 +3,7 @@ const header = require("../header");
 const sslfix = require("./sslfix");
 const cheerio = require("cheerio");
 const Axios = require('axios');
+const { searchWithSession } = require("./scrapeProxyCookie");
 
 const axios = Axios.create();
 
@@ -31,18 +32,9 @@ async function SearchMovieAndSeries(name) {
 
         const searchUrl = `${process.env.PROXY_URL}/wp-admin/admin-ajax.php`;
         const postData = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
-        const fsResponse = await axios.post('http://localhost:8191/v1', {
-            cmd: 'request.post',
-            url: searchUrl,
-            postData: postData,
-            maxTimeout: 60000,
-        }, { timeout: 90000 });
-
-        if (!fsResponse.data || fsResponse.data.status !== 'ok') {
-            console.warn('[Search] FlareSolverr arama başarısız');
-            return {};
-        }
-        const response = { data: fsResponse.data.solution?.response };
+        const html = await searchWithSession(searchUrl, postData);
+        if (!html) return {};
+        const response = { data: html };
 
         if (!response || response.status !== 200 || !response.data) return {};
 
