@@ -14,7 +14,7 @@ async function GetVideos(id) {
         var response = await axios({ ...sslfix, url: process.env.PROXY_URL + id, headers: header, method: "GET" });
         if (response && response.status == 200) {
             var $ = cheerio.load(response.data);
-            var videoLink = $("#vast_new > iframe").attr("src");
+            var videoLink = $("div.responsive-player iframe, #vast_new > iframe, .video-player-area iframe").first().attr("src");
             var jsFileUrl = await ScrapeVideoUrl(videoLink);
             if (jsFileUrl) return jsFileUrl;
         }
@@ -36,11 +36,10 @@ async function ScrapeVideoUrl(scrapeUrl) {
             var playerFileLink = "";
             var subtitles;
             var $ = cheerio.load(response.data);
-            var videoLinks = $("body > script:nth-child(2)");
-
+            var videoLinks = $("script");
 
             videoLinks.each((index, script) => {
-                const scriptContent = $(script).html().trim();
+                const scriptContent = $(script).html() || '';
                 if (scriptContent.includes('new Playerjs')) {
                     const fileMatch = scriptContent.match(/file:"([^"]+)"/);
                     const subtitleMatch = scriptContent.match(/"subtitle":"([^"]+)"/)

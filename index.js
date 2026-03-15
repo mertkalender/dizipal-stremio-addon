@@ -291,11 +291,9 @@ function CheckSubtitleFoldersAndFiles() {
 if (module.parent) {
     module.exports = app;
 } else {
-    app.listen(process.env.PORT || 7000, function (err) {
-        if (err) {
-           return Error("Error in server setup",err.message);
-        }
-        console.log(`extension running port : ${process.env.PORT}`)
+    const port = process.env.PORT || 7005;
+    app.listen(port, function () {
+        console.log(`extension running port : ${port}`);
     });
 }
 
