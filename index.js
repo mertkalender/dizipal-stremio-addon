@@ -112,7 +112,7 @@ app.get("/catalog/:type/:id/search=:search", async (req, res, next) => {
                     }
                 }
             }
-            myCache.set(search + type, metaData);
+            if (metaData.length > 0) myCache.set(search + type, metaData);
             return respond(res, { metas: metaData,cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE });
         }
     } catch (error) {
