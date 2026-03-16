@@ -327,7 +327,11 @@ app.get('/hlsproxy', async (req, res) => {
                 const trimmed = line.trim();
                 if (trimmed === '' || trimmed.startsWith('#')) return line;
                 const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
-                return proxyBase + encodeURIComponent(absUrl);
+                // Sadece alt m3u8 playlist'leri proxy'le, TS segmentleri doğrudan ver
+                if (absUrl.includes('.m3u8')) {
+                    return proxyBase + encodeURIComponent(absUrl);
+                }
+                return absUrl;
             }).join('\n');
 
             res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
