@@ -1,36 +1,42 @@
-const Axios = require('axios');
+const puppeteerExtra = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
-const FLARESOLVERR = 'http://localhost:8191/v1';
+puppeteerExtra.use(StealthPlugin());
+
+const EXECUTABLE_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
 
 async function fetchCookiesWithPuppeteer(url) {
-    let sessionId = null;
+    let browser = null;
     try {
-        // Session oluştur
-        const sessionRes = await Axios.post(FLARESOLVERR, { cmd: 'sessions.create' }, { timeout: 30000 });
-        sessionId = sessionRes.data?.session;
-        console.log('[Cookie] FlareSolverr session:', sessionId);
+        browser = await puppeteerExtra.launch({
+            headless: true,
+            executablePath: EXECUTABLE_PATH,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--window-size=1280,720',
+            ],
+        });
 
-        // GET isteği - CF bypass + cookie + nonce
-        const response = await Axios.post(FLARESOLVERR, {
-            cmd: 'request.get',
-            url: url,
-            session: sessionId,
-            maxTimeout: 60000,
-        }, { timeout: 90000 });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 720 });
 
-        const data = response.data;
-        if (!data || data.status !== 'ok') {
-            console.warn('[Cookie] FlareSolverr başarısız:', data?.message);
-            return { cookies: null, nonce: null, sessionId: null };
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+
+        // CF challenge geçene kadar bekle
+        for (let i = 0; i < 30; i++) {
+            const title = await page.title();
+            if (!title.includes('Just a moment') && !title.includes('Attention Required')) break;
+            await new Promise(r => setTimeout(r, 2000));
         }
 
-        const cookies = (data.solution?.cookies || [])
-            .map(c => `${c.name}=${c.value}`)
-            .join('; ');
+        const html = await page.content();
+        const cookies = await page.cookies();
+        const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
 
-        const html = data.solution?.response || '';
         let nonce = null;
-
         const match = html.match(/live_search_params\s*=\s*\{[^}]*"nonce"\s*:\s*"([^"]+)"/);
         if (match) nonce = match[1];
         if (!nonce) {
@@ -38,46 +44,19 @@ async function fetchCookiesWithPuppeteer(url) {
             if (fallback) nonce = fallback[1];
         }
 
-        const userAgent = data.solution?.userAgent || null;
+        const userAgent = await page.evaluate(() => navigator.userAgent);
 
-        console.log(`[Cookie] ${data.solution?.cookies?.length || 0} cookie alındı: ${url}`);
+        console.log(`[Cookie] ${cookies.length} cookie alındı: ${url}`);
         if (nonce) console.log(`[Cookie] Search nonce alındı: ${nonce}`);
         else console.warn('[Cookie] Nonce alınamadı.');
 
-        return { cookies: cookies || null, nonce: nonce || null, userAgent, sessionId };
+        return { cookies: cookieStr || null, nonce: nonce || null, userAgent, sessionId: null };
     } catch (error) {
-        console.error('[Cookie] FlareSolverr hatası:', error.message);
-        if (sessionId) {
-            await Axios.post(FLARESOLVERR, { cmd: 'sessions.destroy', session: sessionId }).catch(() => {});
-        }
+        console.error('[Cookie] Puppeteer hatası:', error.message);
         return { cookies: null, nonce: null, sessionId: null };
+    } finally {
+        if (browser) await browser.close().catch(() => {});
     }
 }
 
-async function searchWithSession(url, postData) {
-    const sessionId = process.env.FS_SESSION_ID;
-    if (!sessionId) {
-        console.warn('[Search] FlareSolverr session yok');
-        return null;
-    }
-    try {
-        const response = await Axios.post(FLARESOLVERR, {
-            cmd: 'request.post',
-            url: url,
-            postData: postData,
-            session: sessionId,
-            maxTimeout: 60000,
-        }, { timeout: 90000 });
-
-        if (!response.data || response.data.status !== 'ok') {
-            console.warn('[Search] FlareSolverr POST başarısız:', response.data?.message);
-            return null;
-        }
-        return response.data.solution?.response || null;
-    } catch (error) {
-        console.error('[Search] FlareSolverr POST hatası:', error.message);
-        return null;
-    }
-}
-
-module.exports = { fetchCookiesWithPuppeteer, searchWithSession };
+module.exports = { fetchCookiesWithPuppeteer };
