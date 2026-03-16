@@ -195,7 +195,7 @@ app.get('/stream/:type/:id/', async (req, res, next) => {
             var video = await listVideo.GetVideos(id);
             if (video) {
                 const ref = video.embedUrl || '';
-                const proxyUrl = `${process.env.HOSTING_URL}/hlsproxy?ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(video.url)}`;
+                const proxyUrl = `${process.env.HOSTING_URL}/hlsproxy/stream.m3u8?ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(video.url)}`;
                 const stream = { url: proxyUrl };
                 if (video.subtitles) {
                     myCache.set(id, video.subtitles);
@@ -295,7 +295,7 @@ function CheckSubtitleFoldersAndFiles() {
 }
 
 
-app.get('/hlsproxy', (req, res) => {
+app.get(['/hlsproxy', '/hlsproxy/:filename'], (req, res) => {
     const url = req.query.url;
     const ref = req.query.ref || '';
     if (!url) return res.status(400).send('No URL');
