@@ -23,13 +23,38 @@ async function GetVideos(id) {
         }
 
         console.log('[Videos] cfg:', cfg);
+
+        // Token al
+        let ctCookie = '';
+        try {
+            const tokenRes = await axios({ ...sslfix, url: process.env.PROXY_URL + '/ajax-token', method: 'GET', headers: header });
+            if (tokenRes.data && tokenRes.data.t) {
+                ctCookie = `_ct=${tokenRes.data.t}`;
+                console.log('[Videos] token alındı');
+            }
+            // Set-Cookie varsa onu da kullan
+            const setCookie = tokenRes.headers?.['set-cookie'];
+            if (setCookie) {
+                const ctMatch = (Array.isArray(setCookie) ? setCookie.join(';') : setCookie).match(/_ct=([^;]+)/);
+                if (ctMatch) ctCookie = `_ct=${ctMatch[1]}`;
+            }
+        } catch (e) {
+            console.log('[Videos] token alınamadı:', e.message);
+        }
+
         const apiUrl = process.env.PROXY_URL + '/ajax-player-config';
         const apiResponse = await axios({
             ...sslfix,
             url: apiUrl,
             method: 'POST',
-            headers: { ...header, 'Content-Type': 'application/x-www-form-urlencoded', 'Referer': pageUrl },
-            data: `cfg=${cfg}`,
+            headers: {
+                ...header,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': pageUrl,
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(ctCookie ? { 'Cookie': ctCookie } : {}),
+            },
+            data: `cfg=${encodeURIComponent(cfg)}`,
         });
 
         if (!apiResponse || !apiResponse.data || !apiResponse.data.success) {
