@@ -34,11 +34,8 @@ async function findWorkingUrl() {
                 return url;
             }
         } catch (_) {
-            console.log(`[URLManager] ${url} yanıt vermedi, sonraki deneniyor...`);
         }
     }
-
-    console.log('[URLManager] Çalışan URL bulunamadı, mevcut kullanılıyor:', workingUrl);
     return workingUrl;
 }
 

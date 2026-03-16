@@ -24,7 +24,6 @@ async function SearchMovieAndSeries(name) {
     try {
         const proxyUrl = await getProxyUrl();
         const searchUrl = `${proxyUrl}/arama?q=${encodeURIComponent(name)}`;
-        console.log('[Search] GET:', searchUrl);
         const response = await axios({ ...sslfix, url: searchUrl, method: 'GET', headers: header });
         if (!response.data) return {};
 
@@ -45,7 +44,6 @@ async function SearchMovieAndSeries(name) {
             results[urlPath] = { url: urlPath, title, poster, type, genres: '' };
         });
 
-        console.log('[Search] sonuç sayısı:', Object.keys(results).length);
         return results;
     } catch (error) {
         console.error('[Search] hatası:', error.message);
