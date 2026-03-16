@@ -65,10 +65,9 @@ async function SearchMetaMovieAndSeries(id, type) {
         const description = $('meta[property="og:description"]').attr('content') || '';
 
         let maxSeason = 1;
-        $('a[href*="?sezon="], a[href*="/sezon/"]').each((i, el) => {
-            const href = $(el).attr('href') || '';
-            const match = href.match(/sezon[=/](\d+)/);
-            if (match) maxSeason = Math.max(maxSeason, parseInt(match[1]));
+        $('button.season-btn[data-season]').each((i, el) => {
+            const s = parseInt($(el).attr('data-season'));
+            if (s) maxSeason = Math.max(maxSeason, s);
         });
 
         const html = response.data;
@@ -95,7 +94,7 @@ async function SearchDetailMovieAndSeries(id, type, season) {
     try {
         if (type !== 'series') return [{ id }];
 
-        const url = `${process.env.PROXY_URL}${id}${id.includes('?') ? '&' : '?'}sezon=${season}`;
+        const url = `${process.env.PROXY_URL}${id}`;
         const response = await axios({ ...sslfix, url, headers: header, method: 'GET' });
         if (!response || response.status !== 200) return [{}];
 
@@ -103,27 +102,20 @@ async function SearchDetailMovieAndSeries(id, type, season) {
         const episodes = [];
         const seen = new Set();
 
-        $('a[href*="/bolum/"], a[href*="/sezon/"]').each((i, el) => {
+        $(`div.detail-episode-list[data-episodes="${season}"] a.detail-episode-item`).each((i, el) => {
             const href = $(el).attr('href') || '';
-
-            const slugMatch = href.match(/(\d+)[.-]sezon[.-](\d+)[.-]bolum/)
-                || href.match(/sezon\/(\d+)\/bolum\/(\d+)/);
+            const slugMatch = href.match(/(\d+)-sezon-(\d+)-bolum/);
             if (!slugMatch) return;
 
-            const epSeason = parseInt(slugMatch[1]);
             const epNum = parseInt(slugMatch[2]);
-            if (epSeason !== season) return;
-
             const epPath = extractPath(href);
             if (seen.has(epPath)) return;
             seen.add(epPath);
 
-            let thumbnail = '';
-            $(el).find('img').each((j, img) => {
-                if (!thumbnail) thumbnail = $(img).attr('data-src') || $(img).attr('src') || '';
-            });
+            const title = $(el).find('.detail-episode-title').text().trim()
+                || `${season}. Sezon ${epNum}. Bölüm`;
 
-            episodes.push({ id: epPath, title: `${season}. Sezon ${epNum}. Bölüm`, thumbnail, episode: epNum });
+            episodes.push({ id: epPath, title, thumbnail: '', episode: epNum });
         });
 
         episodes.sort((a, b) => a.episode - b.episode);
