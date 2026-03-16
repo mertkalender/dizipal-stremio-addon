@@ -300,31 +300,30 @@ app.get('/hlsproxy', async (req, res) => {
     const ref = req.query.ref || '';
     if (!url) return res.status(400).send('No URL');
 
+    const isM3u8 = url.includes('.m3u8');
+
     try {
         const proxyHeaders = {
             'User-Agent': header['User-Agent'],
             'Referer': ref,
-            'Origin': ref ? new URL(ref).origin : '',
         };
+        try { proxyHeaders['Origin'] = new URL(ref).origin; } catch (_) {}
 
         const upstream = await Axios.create()({
             url,
             method: 'GET',
             headers: proxyHeaders,
-            responseType: 'arraybuffer',
-            timeout: 15000,
+            responseType: isM3u8 ? 'text' : 'stream',
+            timeout: 20000,
         });
-
-        const isM3u8 = url.includes('.m3u8') || (upstream.headers['content-type'] || '').includes('mpegurl');
 
         res.setHeader('Access-Control-Allow-Origin', '*');
 
         if (isM3u8) {
-            const text = upstream.data.toString('utf8');
             const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
             const proxyBase = `${process.env.HOSTING_URL}/hlsproxy?ref=${encodeURIComponent(ref)}&url=`;
 
-            const rewritten = text.split('\n').map(line => {
+            const rewritten = upstream.data.split('\n').map(line => {
                 const trimmed = line.trim();
                 if (trimmed === '' || trimmed.startsWith('#')) return line;
                 const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
@@ -336,10 +335,10 @@ app.get('/hlsproxy', async (req, res) => {
         }
 
         res.setHeader('Content-Type', upstream.headers['content-type'] || 'video/mp2t');
-        return res.send(upstream.data);
+        upstream.data.pipe(res);
     } catch (e) {
         console.log('[HLSProxy] hata:', e.message, 'url:', url.slice(0, 60));
-        res.status(502).send('Proxy error');
+        if (!res.headersSent) res.status(502).send('Proxy error');
     }
 });
 
