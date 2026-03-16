@@ -194,18 +194,9 @@ app.get('/stream/:type/:id/', async (req, res, next) => {
         if (id) {
             var video = await listVideo.GetVideos(id);
             if (video) {
-                const stream = { url: video.url };
-                if (video.embedUrl) {
-                    try {
-                        const embedOrigin = new URL(video.embedUrl).origin;
-                        stream.behaviorHints = {
-                            headers: {
-                                'Referer': embedOrigin + '/',
-                                'Origin': embedOrigin,
-                            }
-                        };
-                    } catch (_) {}
-                }
+                const ref = video.embedUrl || '';
+                const proxyUrl = `${process.env.HOSTING_URL}/hlsproxy?ref=${encodeURIComponent(ref)}&url=${encodeURIComponent(video.url)}`;
+                const stream = { url: proxyUrl };
                 if (video.subtitles) {
                     myCache.set(id, video.subtitles);
                 }
@@ -303,6 +294,54 @@ function CheckSubtitleFoldersAndFiles() {
 
 }
 
+
+app.get('/hlsproxy', async (req, res) => {
+    const url = req.query.url;
+    const ref = req.query.ref || '';
+    if (!url) return res.status(400).send('No URL');
+
+    try {
+        const proxyHeaders = {
+            'User-Agent': header['User-Agent'],
+            'Referer': ref,
+            'Origin': ref ? new URL(ref).origin : '',
+        };
+
+        const upstream = await Axios.create()({
+            url,
+            method: 'GET',
+            headers: proxyHeaders,
+            responseType: 'arraybuffer',
+            timeout: 15000,
+        });
+
+        const isM3u8 = url.includes('.m3u8') || (upstream.headers['content-type'] || '').includes('mpegurl');
+
+        res.setHeader('Access-Control-Allow-Origin', '*');
+
+        if (isM3u8) {
+            const text = upstream.data.toString('utf8');
+            const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+            const proxyBase = `${process.env.HOSTING_URL}/hlsproxy?ref=${encodeURIComponent(ref)}&url=`;
+
+            const rewritten = text.split('\n').map(line => {
+                const trimmed = line.trim();
+                if (trimmed === '' || trimmed.startsWith('#')) return line;
+                const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
+                return proxyBase + encodeURIComponent(absUrl);
+            }).join('\n');
+
+            res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+            return res.send(rewritten);
+        }
+
+        res.setHeader('Content-Type', upstream.headers['content-type'] || 'video/mp2t');
+        return res.send(upstream.data);
+    } catch (e) {
+        console.log('[HLSProxy] hata:', e.message, 'url:', url.slice(0, 60));
+        res.status(502).send('Proxy error');
+    }
+});
 
 if (module.parent) {
     module.exports = app;
