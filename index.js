@@ -340,7 +340,7 @@ app.get('/hlsproxy', (req, res) => {
                 res.send(rewritten);
             });
         } else {
-            res.setHeader('Content-Type', upRes.headers['content-type'] || 'video/mp2t');
+            res.setHeader('Content-Type', 'video/mp2t');
             upRes.pipe(res);
         }
     });
