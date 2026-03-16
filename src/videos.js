@@ -107,7 +107,7 @@ async function GetVideos(id) {
         }
 
         console.log('[Videos] video url:', videoUrl);
-        return { url: videoUrl, subtitles };
+        return { url: videoUrl, subtitles, embedUrl: config.v };
     } catch (error) {
         console.log('[Videos] hata:', error.message);
         return null;

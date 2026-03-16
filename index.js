@@ -195,6 +195,17 @@ app.get('/stream/:type/:id/', async (req, res, next) => {
             var video = await listVideo.GetVideos(id);
             if (video) {
                 const stream = { url: video.url };
+                if (video.embedUrl) {
+                    try {
+                        const embedOrigin = new URL(video.embedUrl).origin;
+                        stream.behaviorHints = {
+                            headers: {
+                                'Referer': embedOrigin + '/',
+                                'Origin': embedOrigin,
+                            }
+                        };
+                    } catch (_) {}
+                }
                 if (video.subtitles) {
                     myCache.set(id, video.subtitles);
                 }
