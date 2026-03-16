@@ -8,12 +8,31 @@ const { setupCache } = require("axios-cache-interceptor");
 const instance = Axios.create();
 const axios = setupCache(instance);
 
+function parseCookies(setCookieHeader) {
+    if (!setCookieHeader) return {};
+    const cookies = {};
+    const list = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+    for (const entry of list) {
+        const part = entry.split(';')[0].trim();
+        const eq = part.indexOf('=');
+        if (eq > 0) cookies[part.slice(0, eq)] = part.slice(eq + 1);
+    }
+    return cookies;
+}
+
+function buildCookieHeader(cookieObj) {
+    return Object.entries(cookieObj).map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
 async function GetVideos(id) {
     try {
         const pageUrl = process.env.PROXY_URL + id;
         console.log('[Videos] GET:', pageUrl);
         const response = await axios({ ...sslfix, url: pageUrl, headers: header, method: 'GET' });
         if (!response || response.status !== 200) return null;
+
+        // Sayfa cookie'lerini topla
+        let cookieJar = parseCookies(response.headers?.['set-cookie']);
 
         const $ = cheerio.load(response.data);
         const cfg = $('div.video-player-container').attr('data-cfg');
@@ -24,23 +43,28 @@ async function GetVideos(id) {
 
         console.log('[Videos] cfg:', cfg);
 
-        // Token al
-        let ctCookie = '';
+        // ajax-token'dan CSRF token ve ek cookie al
+        let csrfToken = '';
         try {
-            const tokenRes = await axios({ ...sslfix, url: process.env.PROXY_URL + '/ajax-token', method: 'GET', headers: header });
-            if (tokenRes.data && tokenRes.data.t) {
-                ctCookie = `_ct=${tokenRes.data.t}`;
-                console.log('[Videos] token alındı');
-            }
-            // Set-Cookie varsa onu da kullan
-            const setCookie = tokenRes.headers?.['set-cookie'];
-            if (setCookie) {
-                const ctMatch = (Array.isArray(setCookie) ? setCookie.join(';') : setCookie).match(/_ct=([^;]+)/);
-                if (ctMatch) ctCookie = `_ct=${ctMatch[1]}`;
+            const tokenRes = await axios({
+                ...sslfix,
+                url: process.env.PROXY_URL + '/ajax-token',
+                method: 'GET',
+                headers: { ...header, ...(Object.keys(cookieJar).length ? { 'Cookie': buildCookieHeader(cookieJar) } : {}) },
+            });
+            const newCookies = parseCookies(tokenRes.headers?.['set-cookie']);
+            cookieJar = { ...cookieJar, ...newCookies };
+            if (tokenRes.data?.t) {
+                csrfToken = tokenRes.data.t;
+                cookieJar['_ct'] = csrfToken;
+                console.log('[Videos] token alındı:', csrfToken.slice(0, 8) + '...');
             }
         } catch (e) {
             console.log('[Videos] token alınamadı:', e.message);
         }
+
+        const cookieStr = buildCookieHeader(cookieJar);
+        console.log('[Videos] cookie jar:', cookieStr.slice(0, 60));
 
         const apiUrl = process.env.PROXY_URL + '/ajax-player-config';
         const apiResponse = await axios({
@@ -52,7 +76,7 @@ async function GetVideos(id) {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Referer': pageUrl,
                 'X-Requested-With': 'XMLHttpRequest',
-                ...(ctCookie ? { 'Cookie': ctCookie } : {}),
+                ...(cookieStr ? { 'Cookie': cookieStr } : {}),
             },
             data: `cfg=${encodeURIComponent(cfg)}`,
         });
