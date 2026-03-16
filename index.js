@@ -295,55 +295,63 @@ function CheckSubtitleFoldersAndFiles() {
 }
 
 
-app.get('/hlsproxy', async (req, res) => {
+app.get('/hlsproxy', (req, res) => {
     const url = req.query.url;
     const ref = req.query.ref || '';
     if (!url) return res.status(400).send('No URL');
 
     const isM3u8 = url.includes('.m3u8');
+    const parsedUrl = new URL(url);
+    const transport = parsedUrl.protocol === 'https:' ? require('https') : require('http');
 
-    try {
-        const proxyHeaders = {
+    let origin = '';
+    try { origin = new URL(ref).origin; } catch (_) {}
+
+    const options = {
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: 'GET',
+        headers: {
             'User-Agent': header['User-Agent'],
             'Referer': ref,
-        };
-        try { proxyHeaders['Origin'] = new URL(ref).origin; } catch (_) {}
+            'Origin': origin,
+        },
+    };
 
-        const upstream = await Axios.create()({
-            url,
-            method: 'GET',
-            headers: proxyHeaders,
-            responseType: isM3u8 ? 'text' : 'stream',
-            timeout: 20000,
-        });
-
+    const proxyReq = transport.request(options, (upRes) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
 
         if (isM3u8) {
-            const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-            const proxyBase = `${process.env.HOSTING_URL}/hlsproxy?ref=${encodeURIComponent(ref)}&url=`;
+            let body = '';
+            upRes.setEncoding('utf8');
+            upRes.on('data', chunk => body += chunk);
+            upRes.on('end', () => {
+                const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+                const proxyBase = `${process.env.HOSTING_URL}/hlsproxy?ref=${encodeURIComponent(ref)}&url=`;
 
-            const rewritten = upstream.data.split('\n').map(line => {
-                const trimmed = line.trim();
-                if (trimmed === '' || trimmed.startsWith('#')) return line;
-                const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
-                // Sadece alt m3u8 playlist'leri proxy'le, TS segmentleri doğrudan ver
-                if (absUrl.includes('.m3u8')) {
+                const rewritten = body.split('\n').map(line => {
+                    const trimmed = line.trim();
+                    if (trimmed === '' || trimmed.startsWith('#')) return line;
+                    const absUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
                     return proxyBase + encodeURIComponent(absUrl);
-                }
-                return absUrl;
-            }).join('\n');
+                }).join('\n');
 
-            res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-            return res.send(rewritten);
+                res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+                res.send(rewritten);
+            });
+        } else {
+            res.setHeader('Content-Type', upRes.headers['content-type'] || 'video/mp2t');
+            upRes.pipe(res);
         }
+    });
 
-        res.setHeader('Content-Type', upstream.headers['content-type'] || 'video/mp2t');
-        upstream.data.pipe(res);
-    } catch (e) {
-        console.log('[HLSProxy] hata:', e.message, 'url:', url.slice(0, 60));
+    proxyReq.on('error', (e) => {
+        console.log('[HLSProxy] hata:', e.message, url.slice(0, 60));
         if (!res.headersSent) res.status(502).send('Proxy error');
-    }
+    });
+
+    req.on('close', () => proxyReq.destroy());
+    proxyReq.end();
 });
 
 if (module.parent) {
