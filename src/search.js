@@ -3,6 +3,7 @@ const header = require("../header");
 const sslfix = require("./sslfix");
 const cheerio = require("cheerio");
 const Axios = require('axios');
+const { getProxyUrl } = require("./urlManager");
 
 const axios = Axios.create();
 
@@ -21,7 +22,8 @@ function getTypeFromUrl(url) {
 
 async function SearchMovieAndSeries(name) {
     try {
-        const searchUrl = `${process.env.PROXY_URL}/arama?q=${encodeURIComponent(name)}`;
+        const proxyUrl = await getProxyUrl();
+        const searchUrl = `${proxyUrl}/arama?q=${encodeURIComponent(name)}`;
         console.log('[Search] GET:', searchUrl);
         const response = await axios({ ...sslfix, url: searchUrl, method: 'GET', headers: header });
         if (!response.data) return {};
@@ -53,7 +55,8 @@ async function SearchMovieAndSeries(name) {
 
 async function SearchMetaMovieAndSeries(id, type) {
     try {
-        const response = await axios({ ...sslfix, url: process.env.PROXY_URL + id, headers: header, method: 'GET' });
+        const proxyUrl = await getProxyUrl();
+        const response = await axios({ ...sslfix, url: proxyUrl + id, headers: header, method: 'GET' });
         if (!response || response.status !== 200) return null;
 
         const $ = cheerio.load(response.data);
@@ -94,7 +97,8 @@ async function SearchDetailMovieAndSeries(id, type, season) {
     try {
         if (type !== 'series') return [{ id }];
 
-        const url = `${process.env.PROXY_URL}${id}`;
+        const proxyUrl = await getProxyUrl();
+        const url = `${proxyUrl}${id}`;
         const response = await axios({ ...sslfix, url, headers: header, method: 'GET' });
         if (!response || response.status !== 200) return [{}];
 

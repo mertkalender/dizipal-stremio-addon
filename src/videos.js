@@ -4,6 +4,7 @@ const sslfix = require("./sslfix");
 const cheerio = require("cheerio");
 const Axios = require('axios');
 const { setupCache } = require("axios-cache-interceptor");
+const { getProxyUrl } = require("./urlManager");
 
 const instance = Axios.create();
 const axios = setupCache(instance);
@@ -26,7 +27,8 @@ function buildCookieHeader(cookieObj) {
 
 async function GetVideos(id) {
     try {
-        const pageUrl = process.env.PROXY_URL + id;
+        const proxyUrl = await getProxyUrl();
+        const pageUrl = proxyUrl + id;
         console.log('[Videos] GET:', pageUrl);
         const response = await axios({ ...sslfix, url: pageUrl, headers: header, method: 'GET' });
         if (!response || response.status !== 200) return null;
@@ -48,7 +50,7 @@ async function GetVideos(id) {
         try {
             const tokenRes = await axios({
                 ...sslfix,
-                url: process.env.PROXY_URL + '/ajax-token',
+                url: proxyUrl + '/ajax-token',
                 method: 'GET',
                 headers: { ...header, ...(Object.keys(cookieJar).length ? { 'Cookie': buildCookieHeader(cookieJar) } : {}) },
             });
@@ -66,7 +68,7 @@ async function GetVideos(id) {
         const cookieStr = buildCookieHeader(cookieJar);
         console.log('[Videos] cookie jar:', cookieStr.slice(0, 60));
 
-        const apiUrl = process.env.PROXY_URL + '/ajax-player-config';
+        const apiUrl = proxyUrl + '/ajax-player-config';
         const apiResponse = await axios({
             ...sslfix,
             url: apiUrl,
