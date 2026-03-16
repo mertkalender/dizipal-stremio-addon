@@ -23,14 +23,26 @@ async function fetchCookiesWithPuppeteer(url) {
         const page = await browser.newPage();
         await page.setViewport({ width: 1280, height: 720 });
 
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+        // İlk yükleme - CF challenge sayfası gelebilir
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
 
-        // CF challenge geçene kadar bekle
-        for (let i = 0; i < 30; i++) {
-            const title = await page.title();
-            if (!title.includes('Just a moment') && !title.includes('Attention Required')) break;
-            await new Promise(r => setTimeout(r, 2000));
-        }
+        // CF challenge varsa navigate edecek, bitene kadar bekle
+        try {
+            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+        } catch (_) {}
+
+        // CF hâlâ devam ediyorsa daha uzun bekle
+        try {
+            await page.waitForFunction(
+                () => !document.title.includes('Just a moment') && !document.title.includes('Attention Required'),
+                { timeout: 60000, polling: 2000 }
+            );
+        } catch (_) {}
+
+        // Sayfa tamamen yüklenene kadar bekle
+        try {
+            await page.waitForNetworkIdle({ timeout: 10000 });
+        } catch (_) {}
 
         const html = await page.content();
         const cookies = await page.cookies();
