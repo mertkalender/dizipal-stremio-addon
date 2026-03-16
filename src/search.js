@@ -3,7 +3,6 @@ const header = require("../header");
 const sslfix = require("./sslfix");
 const cheerio = require("cheerio");
 const Axios = require('axios');
-const { searchWithSession } = require("./scrapeProxyCookie");
 
 const axios = Axios.create();
 
@@ -32,11 +31,20 @@ async function SearchMovieAndSeries(name) {
 
         const searchUrl = `${process.env.PROXY_URL}/wp-admin/admin-ajax.php`;
         const postData = `action=keremiya_live_search&nonce=${nonce}&query=${encodeURIComponent(name)}`;
-        console.log('[Search] FlareSolverr session ile POST yapılıyor, session:', process.env.FS_SESSION_ID);
-        const html = await searchWithSession(searchUrl, postData);
-        console.log('[Search] yanıt uzunluk:', html?.length, 'ilk 200:', html?.substring(0, 200));
-        if (!html) return {};
-        const response = { data: html };
+        console.log('[Search] axios ile POST yapılıyor:', searchUrl);
+        const response = await axios({
+            ...sslfix,
+            url: searchUrl,
+            method: 'POST',
+            headers: {
+                ...header,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            data: postData,
+        });
+        console.log('[Search] yanıt uzunluk:', response.data?.length, 'ilk 200:', response.data?.substring(0, 200));
+        if (!response.data) return {};
 
         if (!response || !response.data) return {};
 
