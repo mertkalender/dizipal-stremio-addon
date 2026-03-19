@@ -18,9 +18,11 @@ URLGETSTATUS=false
 
 ## Git
 
-Commit yaparken signing yok:
+Commit ve push — her zaman ikisini birden yap:
 ```bash
+git add <dosyalar>
 git commit --no-gpg-sign -m "mesaj"
+git push
 ```
 
 ## Proje Yapısı
