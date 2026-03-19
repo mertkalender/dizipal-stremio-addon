@@ -1,30 +1,12 @@
 require("dotenv").config();
 const header = require("../header");
 const sslfix = require("./sslfix");
-const cheerio = require("cheerio");
 const Axios = require('axios');
 const { setupCache } = require("axios-cache-interceptor");
 const { getProxyUrl } = require("./urlManager");
-const crypto = require('crypto');
 
 const instance = Axios.create();
 const axios = setupCache(instance);
-
-function decryptPlayerUrl(appCKey, dataJson) {
-    try {
-        const data = JSON.parse(dataJson);
-        const salt = Buffer.from(data.salt, 'hex');
-        const iv = Buffer.from(data.iv, 'hex');
-        const ciphertext = Buffer.from(data.ciphertext, 'base64');
-        // PBKDF2 SHA-512, keySize=8 words=32 bytes, iterations=1015
-        const key = crypto.pbkdf2Sync(appCKey, salt, 1015, 32, 'sha512');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-        return decrypted.toString('utf8');
-    } catch (_) {
-        return null;
-    }
-}
 
 async function GetVideos(id) {
     try {
@@ -34,34 +16,48 @@ async function GetVideos(id) {
         if (!response || response.status !== 200) return null;
 
         const html = response.data;
-        const $ = cheerio.load(html);
 
-        // Extract appCKey from script tag
-        const appCKeyMatch = html.match(/window\.appCKey\s*=\s*['"]([^'"]+)['"]/);
-        if (!appCKeyMatch) {
-            console.error('[Videos] appCKey bulunamadı. pageUrl:', pageUrl);
-            console.error('[Videos] HTML snippet:', html.slice(0, 800));
+        // Extract data-cfg from player container
+        const cfgMatch = html.match(/data-cfg="([^"]+)"/);
+        if (!cfgMatch) {
+            console.error('[Videos] data-cfg bulunamadı. pageUrl:', pageUrl);
             return null;
         }
-        const appCKey = appCKeyMatch[1];
+        const cfg = cfgMatch[1];
 
-        // Extract encrypted player data
-        const rmkEl = $('[data-rm-k="true"]');
-        if (!rmkEl.length) { console.error('[Videos] data-rm-k elementi bulunamadı'); return null; }
-        const dataJson = rmkEl.text().trim();
-        if (!dataJson) { console.error('[Videos] data-rm-k boş'); return null; }
+        // POST to ajax-player-config
+        const configUrl = proxyUrl + '/ajax-player-config';
+        const configRes = await axios({
+            ...sslfix,
+            url: configUrl,
+            method: 'POST',
+            headers: { ...header, 'Content-Type': 'application/x-www-form-urlencoded', 'Referer': pageUrl, 'X-Requested-With': 'XMLHttpRequest' },
+            data: `cfg=${encodeURIComponent(cfg)}`,
+            cache: false,
+        });
 
-        // Decrypt to get iframe/embed URL
-        const embedUrl = decryptPlayerUrl(appCKey, dataJson);
-        console.log(`[Videos] decrypt sonucu: ${embedUrl}`);
-        if (!embedUrl) return null;
+        if (!configRes || configRes.status !== 200) {
+            console.error('[Videos] ajax-player-config başarısız:', configRes?.status);
+            return null;
+        }
 
-        // Scrape the embed page for the actual stream URL
-        const streamUrl = await scrapeEmbedUrl(embedUrl, pageUrl);
-        console.log(`[Videos] stream URL: ${streamUrl}`);
-        if (!streamUrl) return null;
+        const data = typeof configRes.data === 'string' ? JSON.parse(configRes.data) : configRes.data;
+        if (!data.success || !data.config) {
+            console.error('[Videos] config alınamadı:', JSON.stringify(data).slice(0, 200));
+            return null;
+        }
 
-        return { url: streamUrl, embedUrl };
+        const config = data.config;
+        console.log(`[Videos] config: type=${config.t} url=${String(config.v).slice(0, 80)}`);
+
+        if (config.t === 'iframe' || !config.v) {
+            // Embed URL döndü, scrape etmemiz lazım
+            const streamUrl = await scrapeEmbedUrl(config.v, pageUrl);
+            if (!streamUrl) return null;
+            return { url: streamUrl, embedUrl: config.v };
+        }
+
+        return { url: config.v, embedUrl: pageUrl };
     } catch (error) {
         console.error('[Videos] hata:', error.message);
         return null;
