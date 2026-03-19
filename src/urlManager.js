@@ -27,7 +27,7 @@ async function findWorkingUrl() {
         const url = buildUrl(num);
         try {
             const res = await axios({ ...sslfix, url, method: 'GET', headers: header, timeout: 6000 });
-            if (res.status === 200) {
+            if (res.status === 200 && String(res.data).includes('appCKey')) {
                 if (url !== workingUrl) console.log(`[URLManager] Yeni çalışan URL: ${url}`);
                 workingUrl = url;
                 lastChecked = Date.now();
