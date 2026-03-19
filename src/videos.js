@@ -25,14 +25,22 @@ async function GetVideos(id) {
         }
         const cfg = cfgMatch[1];
 
+        // Get CSRF token
+        let token = '';
+        try {
+            const tokenRes = await axios({ ...sslfix, url: proxyUrl + '/ajax-token', method: 'GET', headers: { ...header, 'Referer': pageUrl }, cache: false });
+            if (tokenRes?.data?.t) token = tokenRes.data.t;
+        } catch (_) {}
+
         // POST to ajax-player-config
         const configUrl = proxyUrl + '/ajax-player-config';
+        const postData = token ? `cfg=${encodeURIComponent(cfg)}&_token=${encodeURIComponent(token)}` : `cfg=${encodeURIComponent(cfg)}`;
         const configRes = await axios({
             ...sslfix,
             url: configUrl,
             method: 'POST',
-            headers: { ...header, 'Content-Type': 'application/x-www-form-urlencoded', 'Referer': pageUrl, 'X-Requested-With': 'XMLHttpRequest' },
-            data: `cfg=${encodeURIComponent(cfg)}`,
+            headers: { ...header, 'Content-Type': 'application/x-www-form-urlencoded', 'Referer': pageUrl, 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': token },
+            data: postData,
             cache: false,
         });
 
