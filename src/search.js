@@ -104,7 +104,15 @@ async function SearchDetailMovieAndSeries(id, type, season) {
         const episodes = [];
         const seen = new Set();
 
-        $('a[href*="/bolum/"]').each((i, el) => {
+        const allBolumLinks = $('a[href*="/bolum/"]');
+        console.log(`[Search] detay → URL: ${url} | sezon: ${season} | /bolum/ link sayısı: ${allBolumLinks.length}`);
+        if (allBolumLinks.length > 0) {
+            const samples = [];
+            allBolumLinks.slice(0, 5).each((i, el) => samples.push($(el).attr('href')));
+            console.log(`[Search] ilk 5 link:`, samples);
+        }
+
+        allBolumLinks.each((i, el) => {
             const href = $(el).attr('href') || '';
             const slugMatch = href.match(/(\d+)x(\d+)-/);
             if (!slugMatch) return;
@@ -121,6 +129,7 @@ async function SearchDetailMovieAndSeries(id, type, season) {
             episodes.push({ id: epPath, title, thumbnail: '', episode: epNum });
         });
 
+        console.log(`[Search] sezon ${season} için bulunan bölüm: ${episodes.length}`);
         episodes.sort((a, b) => a.episode - b.episode);
         return episodes.length > 0 ? episodes : [{}];
     } catch (error) {
