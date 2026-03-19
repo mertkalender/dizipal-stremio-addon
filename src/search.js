@@ -104,10 +104,11 @@ async function SearchDetailMovieAndSeries(id, type, season) {
         const episodes = [];
         const seen = new Set();
 
-        $(`ul.epsf${season} .ep-item a[href*="/bolum/"]`).each((i, el) => {
+        $('a[href*="/bolum/"]').each((i, el) => {
             const href = $(el).attr('href') || '';
             const slugMatch = href.match(/(\d+)x(\d+)-/);
             if (!slugMatch) return;
+            if (parseInt(slugMatch[1]) !== season) return;
 
             const epNum = parseInt(slugMatch[2]);
             const epPath = extractPath(href);
