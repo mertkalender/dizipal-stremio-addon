@@ -38,7 +38,11 @@ async function GetVideos(id) {
 
         // Extract appCKey from script tag
         const appCKeyMatch = html.match(/window\.appCKey\s*=\s*['"]([^'"]+)['"]/);
-        if (!appCKeyMatch) { console.error('[Videos] appCKey bulunamadı'); return null; }
+        if (!appCKeyMatch) {
+            console.error('[Videos] appCKey bulunamadı. pageUrl:', pageUrl);
+            console.error('[Videos] HTML snippet:', html.slice(0, 800));
+            return null;
+        }
         const appCKey = appCKeyMatch[1];
 
         // Extract encrypted player data
