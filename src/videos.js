@@ -2,11 +2,17 @@ require("dotenv").config();
 const header = require("../header");
 const sslfix = require("./sslfix");
 const Axios = require('axios');
-const { setupCache } = require("axios-cache-interceptor");
 const { getProxyUrl } = require("./urlManager");
 
-const instance = Axios.create();
-const axios = setupCache(instance);
+// Cache'siz axios — cookie'leri yakalamak için
+const axios = Axios.create();
+
+function extractCookies(responseHeaders) {
+    const setCookie = responseHeaders['set-cookie'];
+    if (!setCookie) return '';
+    const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];
+    return cookies.map(c => c.split(';')[0]).join('; ');
+}
 
 async function GetVideos(id) {
     try {
@@ -25,23 +31,23 @@ async function GetVideos(id) {
         }
         const cfg = cfgMatch[1];
 
-        // Get CSRF token
-        let token = '';
-        try {
-            const tokenRes = await axios({ ...sslfix, url: proxyUrl + '/ajax-token', method: 'GET', headers: { ...header, 'Referer': pageUrl }, cache: false });
-            if (tokenRes?.data?.t) token = tokenRes.data.t;
-        } catch (_) {}
+        // Sayfanın set ettiği cookie'leri al (_ct CSRF token burada)
+        const pageCookies = extractCookies(response.headers);
 
         // POST to ajax-player-config
         const configUrl = proxyUrl + '/ajax-player-config';
-        const postData = token ? `cfg=${encodeURIComponent(cfg)}&_token=${encodeURIComponent(token)}` : `cfg=${encodeURIComponent(cfg)}`;
         const configRes = await axios({
             ...sslfix,
             url: configUrl,
             method: 'POST',
-            headers: { ...header, 'Content-Type': 'application/x-www-form-urlencoded', 'Referer': pageUrl, 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': token },
-            data: postData,
-            cache: false,
+            headers: {
+                ...header,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': pageUrl,
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(pageCookies ? { 'Cookie': pageCookies } : {}),
+            },
+            data: `cfg=${encodeURIComponent(cfg)}`,
         });
 
         if (!configRes || configRes.status !== 200) {
@@ -58,8 +64,7 @@ async function GetVideos(id) {
         const config = data.config;
         console.log(`[Videos] config: type=${config.t} url=${String(config.v).slice(0, 80)}`);
 
-        if (config.t === 'iframe' || !config.v) {
-            // Embed URL döndü, scrape etmemiz lazım
+        if (config.t === 'iframe' || (config.t !== 'm3u8' && config.t !== 'mp4')) {
             const streamUrl = await scrapeEmbedUrl(config.v, pageUrl);
             if (!streamUrl) return null;
             return { url: streamUrl, embedUrl: config.v };
