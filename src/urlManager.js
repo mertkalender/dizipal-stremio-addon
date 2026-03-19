@@ -7,6 +7,7 @@ const axios = Axios.create();
 
 let workingUrl = process.env.PROXY_URL;
 let lastChecked = 0;
+let findingPromise = null;
 const CHECK_INTERVAL = 20 * 60 * 1000; // 20 dakikada bir yeniden kontrol
 
 function extractNumber(url) {
@@ -41,7 +42,10 @@ async function findWorkingUrl() {
 
 async function getProxyUrl() {
     if (Date.now() - lastChecked > CHECK_INTERVAL) {
-        return await findWorkingUrl();
+        if (!findingPromise) {
+            findingPromise = findWorkingUrl().finally(() => { findingPromise = null; });
+        }
+        return await findingPromise;
     }
     return workingUrl;
 }
