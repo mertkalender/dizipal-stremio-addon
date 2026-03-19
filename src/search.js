@@ -114,7 +114,10 @@ async function SearchDetailMovieAndSeries(id, type, season) {
 
         allBolumLinks.each((i, el) => {
             const href = $(el).attr('href') || '';
-            const slugMatch = href.match(/(\d+)x(\d+)-/);
+            // Format 1: prens-3x2-c04
+            let slugMatch = href.match(/(\d+)x(\d+)-/);
+            // Format 2: gibi-1-sezon-1-bolum
+            if (!slugMatch) slugMatch = href.match(/-(\d+)-sezon-(\d+)-bolum/);
             if (!slugMatch) return;
             if (parseInt(slugMatch[1]) !== season) return;
 
