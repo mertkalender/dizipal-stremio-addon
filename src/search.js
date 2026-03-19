@@ -66,10 +66,12 @@ async function SearchMetaMovieAndSeries(id, type) {
         const description = $('meta[property="og:description"]').attr('content') || '';
 
         let maxSeason = 1;
-        $('select[onchange="changeSsEpisode(this)"] option').each((i, el) => {
-            const s = parseInt($(el).attr('value'));
-            if (s) maxSeason = Math.max(maxSeason, s);
+        $('a[href*="/bolum/"]').each((i, el) => {
+            const href = $(el).attr('href') || '';
+            const m = href.match(/(\d+)x\d+/) || href.match(/-(\d+)-sezon-\d+-bolum/);
+            if (m) maxSeason = Math.max(maxSeason, parseInt(m[1]));
         });
+        console.log(`[Search] meta → ${id} | maxSeason: ${maxSeason}`);
 
         const html = response.data;
         const yearMatch = html.match(/(20\d\d)/);

@@ -38,21 +38,23 @@ async function GetVideos(id) {
 
         // Extract appCKey from script tag
         const appCKeyMatch = html.match(/window\.appCKey\s*=\s*['"]([^'"]+)['"]/);
-        if (!appCKeyMatch) return null;
+        if (!appCKeyMatch) { console.error('[Videos] appCKey bulunamadı'); return null; }
         const appCKey = appCKeyMatch[1];
 
         // Extract encrypted player data
         const rmkEl = $('[data-rm-k="true"]');
-        if (!rmkEl.length) return null;
+        if (!rmkEl.length) { console.error('[Videos] data-rm-k elementi bulunamadı'); return null; }
         const dataJson = rmkEl.text().trim();
-        if (!dataJson) return null;
+        if (!dataJson) { console.error('[Videos] data-rm-k boş'); return null; }
 
         // Decrypt to get iframe/embed URL
         const embedUrl = decryptPlayerUrl(appCKey, dataJson);
+        console.log(`[Videos] decrypt sonucu: ${embedUrl}`);
         if (!embedUrl) return null;
 
         // Scrape the embed page for the actual stream URL
         const streamUrl = await scrapeEmbedUrl(embedUrl, pageUrl);
+        console.log(`[Videos] stream URL: ${streamUrl}`);
         if (!streamUrl) return null;
 
         return { url: streamUrl, embedUrl };
