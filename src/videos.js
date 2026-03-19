@@ -5,24 +5,25 @@ const cheerio = require("cheerio");
 const Axios = require('axios');
 const { setupCache } = require("axios-cache-interceptor");
 const { getProxyUrl } = require("./urlManager");
+const crypto = require('crypto');
 
 const instance = Axios.create();
 const axios = setupCache(instance);
 
-function parseCookies(setCookieHeader) {
-    if (!setCookieHeader) return {};
-    const cookies = {};
-    const list = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
-    for (const entry of list) {
-        const part = entry.split(';')[0].trim();
-        const eq = part.indexOf('=');
-        if (eq > 0) cookies[part.slice(0, eq)] = part.slice(eq + 1);
+function decryptPlayerUrl(appCKey, dataJson) {
+    try {
+        const data = JSON.parse(dataJson);
+        const salt = Buffer.from(data.salt, 'hex');
+        const iv = Buffer.from(data.iv, 'hex');
+        const ciphertext = Buffer.from(data.ciphertext, 'base64');
+        // PBKDF2 SHA-512, keySize=8 words=32 bytes, iterations=1015
+        const key = crypto.pbkdf2Sync(appCKey, salt, 1015, 32, 'sha512');
+        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return decrypted.toString('utf8');
+    } catch (_) {
+        return null;
     }
-    return cookies;
-}
-
-function buildCookieHeader(cookieObj) {
-    return Object.entries(cookieObj).map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
 async function GetVideos(id) {
@@ -32,53 +33,29 @@ async function GetVideos(id) {
         const response = await axios({ ...sslfix, url: pageUrl, headers: header, method: 'GET' });
         if (!response || response.status !== 200) return null;
 
-        let cookieJar = parseCookies(response.headers?.['set-cookie']);
+        const html = response.data;
+        const $ = cheerio.load(html);
 
-        const $ = cheerio.load(response.data);
-        const cfg = $('div.video-player-container').attr('data-cfg');
-        if (!cfg) return null;
+        // Extract appCKey from script tag
+        const appCKeyMatch = html.match(/window\.appCKey\s*=\s*['"]([^'"]+)['"]/);
+        if (!appCKeyMatch) return null;
+        const appCKey = appCKeyMatch[1];
 
-        try {
-            const tokenRes = await axios({
-                ...sslfix,
-                url: proxyUrl + '/ajax-token',
-                method: 'GET',
-                headers: { ...header, ...(Object.keys(cookieJar).length ? { 'Cookie': buildCookieHeader(cookieJar) } : {}) },
-            });
-            const newCookies = parseCookies(tokenRes.headers?.['set-cookie']);
-            cookieJar = { ...cookieJar, ...newCookies };
-            if (tokenRes.data?.t) cookieJar['_ct'] = tokenRes.data.t;
-        } catch (_) {}
+        // Extract encrypted player data
+        const rmkEl = $('[data-rm-k="true"]');
+        if (!rmkEl.length) return null;
+        const dataJson = rmkEl.text().trim();
+        if (!dataJson) return null;
 
-        const cookieStr = buildCookieHeader(cookieJar);
-        const apiResponse = await axios({
-            ...sslfix,
-            url: proxyUrl + '/ajax-player-config',
-            method: 'POST',
-            headers: {
-                ...header,
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Referer': pageUrl,
-                'X-Requested-With': 'XMLHttpRequest',
-                ...(cookieStr ? { 'Cookie': cookieStr } : {}),
-            },
-            data: `cfg=${encodeURIComponent(cfg)}`,
-        });
+        // Decrypt to get iframe/embed URL
+        const embedUrl = decryptPlayerUrl(appCKey, dataJson);
+        if (!embedUrl) return null;
 
-        if (!apiResponse?.data?.success) return null;
+        // Scrape the embed page for the actual stream URL
+        const streamUrl = await scrapeEmbedUrl(embedUrl, pageUrl);
+        if (!streamUrl) return null;
 
-        const config = apiResponse.data.config;
-        let videoUrl = config.v;
-        const videoType = config.t || '';
-        const subtitleRaw = config.s || config.subtitle || '';
-        const subtitles = subtitleRaw ? subtitleRaw.split(',').filter(Boolean) : undefined;
-
-        if (videoUrl && (videoType === 'embed' || videoType === 'iframe' || videoUrl.includes('.html'))) {
-            const streamUrl = await scrapeEmbedUrl(videoUrl, pageUrl);
-            if (streamUrl) videoUrl = streamUrl;
-        }
-
-        return { url: videoUrl, subtitles, embedUrl: config.v };
+        return { url: streamUrl, embedUrl };
     } catch (error) {
         console.error('[Videos] hata:', error.message);
         return null;

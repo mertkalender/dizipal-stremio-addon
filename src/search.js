@@ -66,8 +66,8 @@ async function SearchMetaMovieAndSeries(id, type) {
         const description = $('meta[property="og:description"]').attr('content') || '';
 
         let maxSeason = 1;
-        $('button.season-btn[data-season]').each((i, el) => {
-            const s = parseInt($(el).attr('data-season'));
+        $('select[onchange="changeSsEpisode(this)"] option').each((i, el) => {
+            const s = parseInt($(el).attr('value'));
             if (s) maxSeason = Math.max(maxSeason, s);
         });
 
@@ -104,9 +104,9 @@ async function SearchDetailMovieAndSeries(id, type, season) {
         const episodes = [];
         const seen = new Set();
 
-        $(`div.detail-episode-list[data-episodes="${season}"] a.detail-episode-item`).each((i, el) => {
+        $(`ul.epsf${season} .ep-item a[href*="/bolum/"]`).each((i, el) => {
             const href = $(el).attr('href') || '';
-            const slugMatch = href.match(/(\d+)-sezon-(\d+)-bolum/);
+            const slugMatch = href.match(/(\d+)x(\d+)-/);
             if (!slugMatch) return;
 
             const epNum = parseInt(slugMatch[2]);
@@ -114,7 +114,7 @@ async function SearchDetailMovieAndSeries(id, type, season) {
             if (seen.has(epPath)) return;
             seen.add(epPath);
 
-            const title = $(el).find('.detail-episode-title').text().trim()
+            const title = $(el).find('.title').text().trim()
                 || `${season}. Sezon ${epNum}. Bölüm`;
 
             episodes.push({ id: epPath, title, thumbnail: '', episode: epNum });
