@@ -2,7 +2,7 @@ require("dotenv").config();
 const header = require("../header");
 const sslfix = require("./sslfix");
 const Axios = require('axios');
-const { getProxyUrl } = require("./urlManager");
+const { getProxyUrl, resetUrl } = require("./urlManager");
 
 // Cache'siz axios — cookie'leri yakalamak için
 const axios = Axios.create();
@@ -52,6 +52,7 @@ async function GetVideos(id) {
 
         if (!configRes || configRes.status !== 200) {
             console.error('[Videos] ajax-player-config başarısız:', configRes?.status);
+            if (configRes?.status === 405) resetUrl();
             return null;
         }
 
@@ -73,6 +74,7 @@ async function GetVideos(id) {
         return { url: config.v, embedUrl: pageUrl };
     } catch (error) {
         console.error('[Videos] hata:', error.message);
+        if (error.response?.status === 405 || error.message?.includes('405')) resetUrl();
         return null;
     }
 }

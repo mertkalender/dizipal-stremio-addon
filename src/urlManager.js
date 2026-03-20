@@ -50,7 +50,11 @@ async function getProxyUrl() {
     return workingUrl;
 }
 
+function resetUrl() {
+    lastChecked = 0;
+}
+
 // Başlangıçta hemen kontrol et
 findWorkingUrl().catch(() => {});
 
-module.exports = { getProxyUrl };
+module.exports = { getProxyUrl, resetUrl };
